@@ -276,11 +276,8 @@ function completeMaintenance(did){
   headCapacitor.value=""; handheldTestCard.checked=false;
 
   workDone.value = d.deviceType==="handheld"
-    ? "1.2 test karta göre makine ayarları kontrol edildi.
-Uyarı sistemleri kontrol edildi."
-    : "1.2 test karta göre makine ayarları kontrol edildi.
-Operatör eğitimleri yenilendi.
-9 nokta test işlemi yapıldı.";
+    ? "1.2 test karta göre makine ayarları kontrol edildi.\nUyarı sistemleri kontrol edildi."
+    : "1.2 test karta göre makine ayarları kontrol edildi.\nOperatör eğitimleri yenilendi.\n9 nokta test işlemi yapıldı.";
 
   nextServiceDate.value=addMonths(todayISO(), d.intervalMonths||6);
   technicianName.value="Kalmer Kalibrasyon";
