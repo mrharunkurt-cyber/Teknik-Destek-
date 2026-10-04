@@ -1,5 +1,5 @@
 
-const CACHE="metal-bakim-v61";
+const CACHE="metal-bakim-v64";
 const ASSETS=["./","index.html","style.css","app.js","manifest.json","icon-192.png","icon-512.png"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener("activate",e=>e.waitUntil(self.clients.claim()));

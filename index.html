@@ -100,7 +100,7 @@
       <label>Adres<textarea id="address"></textarea></label>
       <label>Not<textarea id="customerNotes"></textarea></label>
       <div class="dialog-actions">
-        <button value="cancel" class="secondary">Vazgeç</button>
+        <button type="button" class="secondary" onclick="this.closest('dialog').close()">Vazgeç</button>
         <button type="submit" value="default">Kaydet</button>
       </div>
     </form>
@@ -130,7 +130,7 @@
       <img id="photoPreview" class="preview hidden" alt="Cihaz fotoğrafı">
       <label>Not<textarea id="deviceNotes"></textarea></label>
       <div class="dialog-actions">
-        <button value="cancel" class="secondary">Vazgeç</button>
+        <button type="button" class="secondary" onclick="this.closest('dialog').close()">Vazgeç</button>
         <button type="submit" value="default">Kaydet</button>
       </div>
     </form>
@@ -155,7 +155,7 @@
       <label>Fatura / makbuz no<input id="invoiceNumber"></label>
       <label>Not<textarea id="paymentNotes"></textarea></label>
       <div class="dialog-actions">
-        <button value="cancel" class="secondary">Vazgeç</button>
+        <button type="button" class="secondary" onclick="this.closest('dialog').close()">Vazgeç</button>
         <button type="submit" value="default">Kaydet</button>
       </div>
     </form>
@@ -172,7 +172,7 @@
         </select>
       </label>
       <div class="dialog-actions">
-        <button value="cancel" class="secondary">Vazgeç</button>
+        <button type="button" class="secondary" onclick="this.closest('dialog').close()">Vazgeç</button>
         <button type="submit">Tahsil Et</button>
       </div>
     </form>
@@ -225,9 +225,17 @@
         <label>Teknisyen / Onay<input id="technicianName" placeholder="Kalmer Kalibrasyon"></label>
       </section>
 
+      <section class="form-section">
+        <h4>Bakım Evrakı</h4>
+        <label>Fotoğraf veya PDF Ekle
+          <input id="serviceAttachment" type="file" accept="image/*,application/pdf">
+        </label>
+        <div id="attachmentInfo" class="muted small">Evrak eklenmedi.</div>
+      </section>
+
       <div class="dialog-actions">
-        <button value="cancel" class="secondary">Vazgeç</button>
-        <button type="submit">Kaydet ve Tamamla</button>
+        <button type="button" id="serviceCancelBtn" class="secondary">Vazgeç</button>
+        <button type="submit" id="serviceSaveBtn">Kaydet ve Tamamla</button>
       </div>
     </form>
   </dialog>

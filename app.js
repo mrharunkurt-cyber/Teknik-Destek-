@@ -4,6 +4,7 @@ let db = loadDB();
 if(!db.serviceRecords) db.serviceRecords=[];
 let deferredPrompt = null;
 let maintFilter = "upcoming";
+const $ = id => document.getElementById(id);
 
 function loadDB(){
   try{
@@ -248,40 +249,50 @@ function completeMaintenance(did){
   const d=getDevice(did); if(!d)return;
   const c=getCustomer(d.customerId);
 
-  serviceDeviceId.value=d.id;
-  serviceDialogTitle.textContent = d.deviceType==="handheld"
+  $("serviceDeviceId").value=d.id;
+  $("serviceDialogTitle").textContent = d.deviceType==="handheld"
     ? "El Tipi Metal Dedektör Kalibrasyon Formu"
     : d.deviceType==="needle"
       ? "İğne Dedektörü Kalibrasyon Formu"
       : "Servis / Bakım Formu";
 
-  certificateNo.value = String((db.serviceRecords?.length||0)+1).padStart(4,"0");
-  serviceDate.value=todayISO();
-  serviceCompany.value=c?.companyName||"";
-  serviceAddress.value=c?.address||"";
-  servicePhone.value=c?.phone||"";
-  serviceMachineName.value=d.name||"";
-  serviceSerial.value=d.serialNumber||"";
-  serviceOperators.value=d.brandModel||"";
+  $("certificateNo").value = String((db.serviceRecords?.length||0)+1).padStart(4,"0");
+  $("serviceDate").value=todayISO();
+  $("serviceCompany").value=c?.companyName||"";
+  $("serviceAddress").value=c?.address||"";
+  $("servicePhone").value=c?.phone||"";
+  $("serviceMachineName").value=d.name||"";
+  $("serviceSerial").value=d.serialNumber||"";
+  $("serviceOperators").value=d.brandModel||"";
 
-  needleFields.classList.toggle("hidden", d.deviceType==="handheld");
-  handheldFields.classList.toggle("hidden", d.deviceType!=="handheld");
+  $("needleFields").classList.toggle("hidden", d.deviceType==="handheld");
+  $("handheldFields").classList.toggle("hidden", d.deviceType!=="handheld");
 
-  sensitivity.value="";
-  counterSensors.checked=false; autoStart.checked=false; printerWorks.checked=false;
-  dateTimeOk.checked=false; beltClean.checked=false; testCard12.checked=false; ninePoint.checked=false;
-  trainedPeople.value="";
+  $("sensitivity").value="";
+  $("counterSensors").checked=false;
+  $("autoStart").checked=false;
+  $("printerWorks").checked=false;
+  $("dateTimeOk").checked=false;
+  $("beltClean").checked=false;
+  $("testCard12").checked=false;
+  $("ninePoint").checked=false;
+  $("trainedPeople").value="";
 
-  powerSupply.value=""; batteryBackup.value=""; processBoard.value="";
-  headCapacitor.value=""; handheldTestCard.checked=false;
+  $("powerSupply").value="";
+  $("batteryBackup").value="";
+  $("processBoard").value="";
+  $("headCapacitor").value="";
+  $("handheldTestCard").checked=false;
 
-  workDone.value = d.deviceType==="handheld"
-    ? "1.2 test karta göre makine ayarları kontrol edildi.\nUyarı sistemleri kontrol edildi."
-    : "1.2 test karta göre makine ayarları kontrol edildi.\nOperatör eğitimleri yenilendi.\n9 nokta test işlemi yapıldı.";
+  $("workDone").value = d.deviceType==="handheld"
+    ? "1.2 test karta göre makine ayarları kontrol edildi.\\nUyarı sistemleri kontrol edildi."
+    : "1.2 test karta göre makine ayarları kontrol edildi.\\nOperatör eğitimleri yenilendi.\\n9 nokta test işlemi yapıldı.";
 
-  nextServiceDate.value=addMonths(todayISO(), d.intervalMonths||6);
-  technicianName.value="Kalmer Kalibrasyon";
-  serviceDialog.showModal();
+  $("nextServiceDate").value=addMonths(todayISO(), d.intervalMonths||6);
+  $("technicianName").value="Kalmer Kalibrasyon";
+  $("serviceAttachment").value="";
+  $("attachmentInfo").textContent="Evrak eklenmedi.";
+  $("serviceDialog").showModal();
 }
 
 function markMaintenanceNotDone(did){
@@ -293,51 +304,110 @@ function markMaintenanceNotDone(did){
   }
 }
 
-serviceForm.addEventListener("submit",e=>{
+
+$("serviceAttachment").addEventListener("change", ()=>{
+  const f=$("serviceAttachment").files[0];
+  $("attachmentInfo").textContent = f
+    ? `${f.name} • ${(f.size/1024/1024).toFixed(2)} MB`
+    : "Evrak eklenmedi.";
+});
+
+function fileToDataURLSafe(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+$("serviceCancelBtn").addEventListener("click", ()=>{
+  $("serviceDialog").close();
+});
+
+$("serviceForm").addEventListener("submit", async e=>{
   e.preventDefault();
-  const d=getDevice(serviceDeviceId.value); if(!d)return;
+
+  const d=getDevice($("serviceDeviceId").value);
+  if(!d){
+    alert("Cihaz kaydı bulunamadı.");
+    return;
+  }
+
   const c=getCustomer(d.customerId);
 
   const record={
     id:id(),
     deviceId:d.id,
     customerId:d.customerId,
-    certificateNo:certificateNo.value.trim(),
-    date:serviceDate.value,
+    certificateNo:$("certificateNo").value.trim(),
+    date:$("serviceDate").value,
     companyName:c?.companyName||"",
     address:c?.address||"",
     phone:c?.phone||"",
     machineName:d.name||"",
     serialNumber:d.serialNumber||"",
     deviceType:d.deviceType||"needle",
-    operators:serviceOperators.value.trim(),
-    sensitivity:sensitivity.value.trim(),
-    counterSensors:counterSensors.checked,
-    autoStart:autoStart.checked,
-    printerWorks:printerWorks.checked,
-    dateTimeOk:dateTimeOk.checked,
-    beltClean:beltClean.checked,
-    testCard12:testCard12.checked,
-    ninePoint:ninePoint.checked,
-    trainedPeople:trainedPeople.value.trim(),
-    powerSupply:powerSupply.value.trim(),
-    batteryBackup:batteryBackup.value.trim(),
-    processBoard:processBoard.value.trim(),
-    headCapacitor:headCapacitor.value.trim(),
-    handheldTestCard:handheldTestCard.checked,
-    workDone:workDone.value.trim(),
-    nextServiceDate:nextServiceDate.value,
-    technicianName:technicianName.value.trim()
+    operators:$("serviceOperators").value.trim(),
+    sensitivity:$("sensitivity").value.trim(),
+    counterSensors:$("counterSensors").checked,
+    autoStart:$("autoStart").checked,
+    printerWorks:$("printerWorks").checked,
+    dateTimeOk:$("dateTimeOk").checked,
+    beltClean:$("beltClean").checked,
+    testCard12:$("testCard12").checked,
+    ninePoint:$("ninePoint").checked,
+    trainedPeople:$("trainedPeople").value.trim(),
+    powerSupply:$("powerSupply").value.trim(),
+    batteryBackup:$("batteryBackup").value.trim(),
+    processBoard:$("processBoard").value.trim(),
+    headCapacitor:$("headCapacitor").value.trim(),
+    handheldTestCard:$("handheldTestCard").checked,
+    workDone:$("workDone").value.trim(),
+    nextServiceDate:$("nextServiceDate").value,
+    technicianName:$("technicianName").value.trim(),
+    attachmentName:"",
+    attachmentType:"",
+    attachmentData:""
   };
 
+  const attachmentFile=$("serviceAttachment").files[0];
+  if(attachmentFile){
+    // localStorage capacity is limited; warn for larger files
+    if(attachmentFile.size > 3 * 1024 * 1024){
+      alert("Evrak 3 MB'dan büyük. Daha küçük bir PDF veya fotoğraf seçin.");
+      return;
+    }
+    try{
+      record.attachmentName=attachmentFile.name;
+      record.attachmentType=attachmentFile.type;
+      record.attachmentData=await fileToDataURLSafe(attachmentFile);
+    }catch(err){
+      alert("Evrak okunamadı.");
+      return;
+    }
+  }
+
+  if(!record.date){
+    alert("Servis tarihini seçin.");
+    return;
+  }
+  if(!record.nextServiceDate){
+    alert("Gelecek servis tarihini seçin.");
+    return;
+  }
+
+  if(!db.serviceRecords) db.serviceRecords=[];
   db.serviceRecords.push(record);
-  d.lastMaintenance=serviceDate.value;
-  d.completedDate=serviceDate.value;
+
+  d.lastMaintenance=record.date;
+  d.completedDate=record.date;
   d.maintenanceState="completed";
-  d.brandModel=serviceOperators.value.trim();
+  d.brandModel=record.operators;
 
   saveDB();
-  serviceDialog.close();
+  $("serviceDialog").close();
+  alert("Bakım / kalibrasyon kaydı başarıyla kaydedildi.");
 });
 
 function openHistory(did){
@@ -358,12 +428,32 @@ function openHistory(did){
       <div class="muted small">Operatör: ${esc(r.operators||"-")}</div>
       <div class="muted small">Gelecek servis: ${fmtDate(r.nextServiceDate)}</div>
       <div class="actions">
-        <button onclick="printServiceRecord('${r.id}')">PDF / Yazdır</button>
+        ${r.attachmentData ? `<button onclick="openAttachment('${r.id}')">Evrakı Aç</button>` : ""}
       </div>
     </div>
   `).join("") : `<div class="item muted">Bu makine için geçmiş kayıt yok.</div>`;
 
   historyDialog.showModal();
+}
+
+
+function openAttachment(recordId){
+  const r=(db.serviceRecords||[]).find(x=>x.id===recordId);
+  if(!r || !r.attachmentData){
+    alert("Bu bakım kaydında evrak yok.");
+    return;
+  }
+  const w=window.open();
+  if(!w){
+    alert("Evrak açılamadı. Tarayıcı açılır pencereyi engelliyor olabilir.");
+    return;
+  }
+  if((r.attachmentType||"").startsWith("image/")){
+    w.document.write(`<html><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${r.attachmentData}" style="max-width:100%;height:auto"></body></html>`);
+    w.document.close();
+  }else{
+    w.location.href=r.attachmentData;
+  }
 }
 
 function yesNo(v){ return v ? "✓" : "—"; }

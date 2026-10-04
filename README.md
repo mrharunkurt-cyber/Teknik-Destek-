@@ -112,3 +112,29 @@ Bu başlangıç sürümünde uygulama açıldığında yaklaşan ve gecikmiş ba
 - v6 sürümünde tüm butonların çalışmasını engelleyen JavaScript satır sonu hatası düzeltildi.
 - `app.js` sözdizimi kontrolünden geçirildi.
 - Service Worker cache sürümü `metal-bakim-v61` olarak güncellendi.
+
+
+## v6.2 düzeltmesi
+
+- Yeni Cihaz ekranındaki "Vazgeç" butonu düzeltildi.
+- Tüm modal formlardaki "Vazgeç" butonları artık submit tetiklemeden pencereyi kapatıyor.
+- Service Worker cache sürümü `metal-bakim-v62` olarak güncellendi.
+
+
+## v6.3 düzeltmesi
+
+- Servis / Kalibrasyon formundaki Vazgeç butonu iPhone Safari uyumlu hale getirildi.
+- Kaydet ve Tamamla butonu artık tüm alanlara getElementById üzerinden erişiyor.
+- Safari'nin otomatik global ID değişkenlerine bağımlılık kaldırıldı.
+- Kayıt tamamlandığında başarı mesajı gösteriliyor.
+- Service Worker cache sürümü metal-bakim-v63 olarak güncellendi.
+
+
+## v6.4 güncellemesi
+
+- Program artık bakım kaydından PDF üretmeye odaklanmıyor.
+- Bakım tamamlanırken gerçek evrak eklenebilir.
+- iPhone'dan fotoğraf veya PDF seçilebilir.
+- Desteklenen evrak türleri: JPG / PNG / diğer resimler / PDF.
+- Bakım geçmişinde "Evrakı Aç" butonu ile kayıtlı belge görüntülenebilir.
+- Yerel tarayıcı saklama sınırı nedeniyle tek evrak için 3 MB sınırı uygulanır.
