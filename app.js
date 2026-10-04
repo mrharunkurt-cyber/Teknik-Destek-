@@ -31,8 +31,17 @@ function daysUntil(dateStr){
 function maintStatus(device){
   const next = addMonths(device.lastMaintenance, device.intervalMonths||6);
   const d = daysUntil(next);
+
+  // Kullanıcı "Bakım Yapılmadı" seçtiyse tarih ilerlemez.
+  // Kayıt beklemede/gecikmiş olarak kalır.
+  if(device.maintenanceState === "not_done"){
+    if(d < 0) return {key:"late", label:"Yapılmadı / Gecikmiş", days:d, next};
+    return {key:"upcoming", label:"Bakım Yapılmadı", days:d, next};
+  }
+
   if(d < 0) return {key:"late", label:"Gecikmiş", days:d, next};
-  if(d <= Number(device.reminderDays ?? 5)) return {key:"upcoming", label:"Yaklaşıyor", days:d, next};
+  if(d === 0) return {key:"upcoming", label:"Bugün", days:d, next};
+  if(d <= Number(device.reminderDays ?? 5)) return {key:"upcoming", label:"Planlandı", days:d, next};
   return {key:"ok", label:"Normal", days:d, next};
 }
 function getCustomer(cid){ return db.customers.find(x=>x.id===cid); }
@@ -100,6 +109,7 @@ function renderCustomers(){
           <div class="actions">
             <button onclick="openDeviceModal('${c.id}','${d.id}')">Düzenle</button>
             <button class="ok-btn" onclick="completeMaintenance('${d.id}')">Bakım Tamamlandı</button>
+            <button class="warn-btn" onclick="markMaintenanceNotDone('${d.id}')">Bakım Yapılmadı</button>
             <button class="danger-btn" onclick="deleteDevice('${d.id}')">Cihazı Sil</button>
           </div>
         </div>`;
@@ -117,7 +127,10 @@ function renderMaintenance(){
       <div class="row"><h3>${esc(c?.companyName||"Müşteri")} – ${esc(d.name)}</h3><span class="badge ${s.key}">${s.label}</span></div>
       <div class="muted small">Seri No: ${esc(d.serialNumber||"-")}</div>
       <div>Sonraki bakım: <strong>${fmtDate(s.next)}</strong></div>
-      <div class="actions"><button class="ok-btn" onclick="completeMaintenance('${d.id}')">Bakım Tamamlandı</button></div>
+      <div class="actions">
+        <button class="ok-btn" onclick="completeMaintenance('${d.id}')">Bakım Tamamlandı</button>
+        <button class="warn-btn" onclick="markMaintenanceNotDone('${d.id}')">Bakım Yapılmadı</button>
+      </div>
     </div>`;
   }).join("") : `<div class="item muted">Bu filtrede kayıt yok.</div>`;
 }
@@ -178,7 +191,7 @@ deviceForm.addEventListener("submit",async e=>{
   let photoData=existing?.photoData||"";
   const file=devicePhoto.files[0];
   if(file) photoData=await fileToDataURL(file);
-  const obj={id:did||id(),customerId:deviceCustomerId.value,name:deviceName.value.trim(),brandModel:brandModel.value.trim(),serialNumber:serialNumber.value.trim(),lastMaintenance:lastMaintenance.value,intervalMonths:Number(intervalMonths.value||6),reminderDays:Number(reminderDays.value||5),notes:deviceNotes.value.trim(),photoData};
+  const obj={id:did||id(),customerId:deviceCustomerId.value,name:deviceName.value.trim(),brandModel:brandModel.value.trim(),serialNumber:serialNumber.value.trim(),lastMaintenance:lastMaintenance.value,intervalMonths:Number(intervalMonths.value||6),reminderDays:Number(reminderDays.value||5),notes:deviceNotes.value.trim(),photoData,maintenanceState:existing?.maintenanceState||"pending"};
   if(did) db.devices=db.devices.map(x=>x.id===did?obj:x); else db.devices.push(obj);
   saveDB(); deviceDialog.close();
 });
@@ -208,7 +221,19 @@ function fileToDataURL(file){return new Promise((res,rej)=>{const r=new FileRead
 
 function completeMaintenance(did){
   const d=getDevice(did); if(!d)return;
-  if(confirm(`${d.name} için bakımı bugün tamamlandı olarak işaretleyelim mi?`)){ d.lastMaintenance=todayISO(); saveDB(); }
+  if(confirm(`${d.name} için bakım bugün TAMAMLANDI olarak işaretlensin mi?`)){
+    d.lastMaintenance=todayISO();
+    d.maintenanceState="completed";
+    saveDB();
+  }
+}
+
+function markMaintenanceNotDone(did){
+  const d=getDevice(did); if(!d)return;
+  if(confirm(`${d.name} için bakım YAPILMADI olarak işaretlensin mi? Tarih ilerletilmeyecek.`)){
+    d.maintenanceState="not_done";
+    saveDB();
+  }
 }
 function deleteDevice(did){
   if(confirm("Bu cihaz silinsin mi?")){ db.devices=db.devices.filter(x=>x.id!==did); saveDB(); }
