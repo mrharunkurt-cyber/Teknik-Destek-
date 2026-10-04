@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Metal Bakım">
+  <title>Metal Bakım Takip</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Metal Bakım Takip</h1>
+      <p>Servis, bakım ve ödeme yönetimi</p>
+    </div>
+    <button id="installBtn" class="ghost hidden">Yükle</button>
+  </header>
+
+  <main class="container">
+    <section id="dashboard" class="page active">
+      <div class="grid cards">
+        <article class="card"><span>Toplam Alacak</span><strong id="sumReceivable">₺0</strong></article>
+        <article class="card"><span>Bu Ay Tahsil</span><strong id="sumCollected">₺0</strong></article>
+        <article class="card warning"><span>Geciken Ödemeler</span><strong id="sumOverdue">0</strong></article>
+        <article class="card"><span>5 Gün İçinde Bakım</span><strong id="sumUpcoming">0</strong></article>
+        <article class="card danger"><span>Gecikmiş Bakım</span><strong id="sumLateMaintenance">0</strong></article>
+        <article class="card"><span>Toplam Müşteri</span><strong id="sumCustomers">0</strong></article>
+      </div>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h2>Yaklaşan / Geciken Bakımlar</h2>
+        </div>
+        <div id="maintenanceSummary" class="list"></div>
+      </section>
+    </section>
+
+    <section id="customers" class="page">
+      <div class="panel-title">
+        <h2>Müşteriler</h2>
+        <button onclick="openCustomerModal()">+ Müşteri</button>
+      </div>
+      <input id="customerSearch" class="search" placeholder="Firma, kişi, telefon, cihaz veya seri no ara">
+      <div id="customerList" class="list"></div>
+    </section>
+
+    <section id="maintenance" class="page">
+      <div class="panel-title"><h2>Bakımlar</h2></div>
+      <div class="filter-row">
+        <button class="chip active" data-maint-filter="all">Tümü</button>
+        <button class="chip" data-maint-filter="upcoming">Yaklaşan</button>
+        <button class="chip" data-maint-filter="late">Gecikmiş</button>
+      </div>
+      <div id="maintenanceList" class="list"></div>
+    </section>
+
+    <section id="payments" class="page">
+      <div class="panel-title"><h2>Ödemeler</h2></div>
+      <div id="paymentList" class="list"></div>
+    </section>
+
+    <section id="settings" class="page">
+      <div class="panel-title"><h2>Ayarlar / Yedek</h2></div>
+      <div class="panel stack">
+        <button id="exportBtn">Verileri Yedekle (.json)</button>
+        <label class="filebtn">Yedekten Geri Yükle
+          <input id="importFile" type="file" accept="application/json" hidden>
+        </label>
+        <button id="notifyBtn" class="secondary">Bildirim İzni İste</button>
+        <p class="muted small">
+          Not: iPhone'da web uygulamasının kapalıyken kesin zamanlı yerel alarm üretmesi sınırlıdır.
+          Uygulama açıldığında yaklaşan bakımlar görünür. Gerçek push bildirimi için ayrıca bir sunucu/push servisi gerekir.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottomnav">
+    <button data-page="dashboard" class="active">Ana Sayfa</button>
+    <button data-page="customers">Müşteriler</button>
+    <button data-page="maintenance">Bakımlar</button>
+    <button data-page="payments">Ödemeler</button>
+    <button data-page="settings">Ayarlar</button>
+  </nav>
+
+  <dialog id="customerDialog">
+    <form method="dialog" id="customerForm">
+      <h3 id="customerDialogTitle">Yeni Müşteri</h3>
+      <input type="hidden" id="customerId">
+      <label>Firma adı<input id="companyName" required></label>
+      <label>Yetkili kişi<input id="contactName"></label>
+      <label>Telefon<input id="phone" inputmode="tel"></label>
+      <label>Adres<textarea id="address"></textarea></label>
+      <label>Not<textarea id="customerNotes"></textarea></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary">Vazgeç</button>
+        <button type="submit" value="default">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="deviceDialog">
+    <form method="dialog" id="deviceForm">
+      <h3 id="deviceDialogTitle">Yeni Cihaz</h3>
+      <input type="hidden" id="deviceCustomerId">
+      <input type="hidden" id="deviceId">
+      <label>Cihaz adı<input id="deviceName" required></label>
+      <label>Marka / model<input id="brandModel"></label>
+      <label>Seri numarası<input id="serialNumber"></label>
+      <label>Son bakım tarihi<input id="lastMaintenance" type="date" required></label>
+      <label>Bakım periyodu (ay)<input id="intervalMonths" type="number" min="1" value="6"></label>
+      <label>Hatırlatma (gün önce)<input id="reminderDays" type="number" min="0" value="5"></label>
+      <label>Cihaz fotoğrafı
+        <input id="devicePhoto" type="file" accept="image/*" capture="environment">
+      </label>
+      <img id="photoPreview" class="preview hidden" alt="Cihaz fotoğrafı">
+      <label>Not<textarea id="deviceNotes"></textarea></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary">Vazgeç</button>
+        <button type="submit" value="default">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="paymentDialog">
+    <form method="dialog" id="paymentForm">
+      <h3>Ödeme / Alacak Ekle</h3>
+      <input type="hidden" id="paymentCustomerId">
+      <label>Açıklama<input id="paymentTitle" value="Servis / Bakım"></label>
+      <label>Toplam tutar<input id="totalAmount" type="number" min="0" step="0.01" required></label>
+      <label>Ödenen tutar<input id="paidAmount" type="number" min="0" step="0.01" value="0"></label>
+      <label>Vade tarihi<input id="dueDate" type="date" required></label>
+      <label>Ödeme şekli
+        <select id="paymentMethod">
+          <option>Havale / EFT</option>
+          <option>Nakit</option>
+          <option>Kart</option>
+          <option>Diğer</option>
+        </select>
+      </label>
+      <label>Fatura / makbuz no<input id="invoiceNumber"></label>
+      <label>Not<textarea id="paymentNotes"></textarea></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary">Vazgeç</button>
+        <button type="submit" value="default">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="collectDialog">
+    <form method="dialog" id="collectForm">
+      <h3>Tahsilat Ekle</h3>
+      <input type="hidden" id="collectPaymentId">
+      <label>Tutar<input id="collectAmount" type="number" min="0.01" step="0.01" required></label>
+      <label>Ödeme şekli
+        <select id="collectMethod">
+          <option>Havale / EFT</option><option>Nakit</option><option>Kart</option><option>Diğer</option>
+        </select>
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary">Vazgeç</button>
+        <button type="submit">Tahsil Et</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
