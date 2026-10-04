@@ -54,9 +54,9 @@
     <section id="maintenance" class="page">
       <div class="panel-title"><h2>Bakımlar</h2></div>
       <div class="filter-row">
-        <button class="chip active" data-maint-filter="all">Tümü</button>
-        <button class="chip" data-maint-filter="upcoming">Yaklaşan</button>
+        <button class="chip active" data-maint-filter="upcoming">Yaklaşan</button>
         <button class="chip" data-maint-filter="late">Gecikmiş</button>
+        <button class="chip" data-maint-filter="completed">Yapılanlar</button>
       </div>
       <div id="maintenanceList" class="list"></div>
     </section>
@@ -112,7 +112,14 @@
       <input type="hidden" id="deviceCustomerId">
       <input type="hidden" id="deviceId">
       <label>Cihaz adı<input id="deviceName" required></label>
-      <label>Marka / model<input id="brandModel"></label>
+      <label>Cihaz Tipi
+        <select id="deviceType">
+          <option value="needle">İğne Dedektörü</option>
+          <option value="handheld">El Tipi Metal Dedektör</option>
+          <option value="other">Diğer</option>
+        </select>
+      </label>
+      <label>Operatör İsimleri<input id="brandModel"></label>
       <label>Seri numarası<input id="serialNumber"></label>
       <label>Son bakım tarihi<input id="lastMaintenance" type="date" required></label>
       <label>Bakım periyodu (ay)<input id="intervalMonths" type="number" min="1" value="6"></label>
@@ -169,6 +176,70 @@
         <button type="submit">Tahsil Et</button>
       </div>
     </form>
+  </dialog>
+
+
+  <dialog id="serviceDialog">
+    <form method="dialog" id="serviceForm">
+      <h3 id="serviceDialogTitle">Kalibrasyon / Servis Formu</h3>
+      <input type="hidden" id="serviceDeviceId">
+
+      <section class="form-section">
+        <h4>Genel Bilgiler</h4>
+        <label>Sertifika No<input id="certificateNo"></label>
+        <label>Tarih<input id="serviceDate" type="date" required></label>
+        <label>Firma Adı<input id="serviceCompany" readonly></label>
+        <label>Firma Adresi<input id="serviceAddress" readonly></label>
+        <label>Firma Tel No<input id="servicePhone" readonly></label>
+        <label>Makine Adı<input id="serviceMachineName" readonly></label>
+        <label>Seri No<input id="serviceSerial" readonly></label>
+        <label>Operatör İsimleri<input id="serviceOperators"></label>
+      </section>
+
+      <section id="needleFields" class="form-section">
+        <h4>İğne Dedektörü Kontrolleri</h4>
+        <label>Hassasiyet Ayarı<input id="sensitivity" placeholder="örn. min:80"></label>
+        <label class="checkrow"><input id="counterSensors" type="checkbox"> Sayaç Sensörleri Açık</label>
+        <label class="checkrow"><input id="autoStart" type="checkbox"> Otomatik Başlama Açık</label>
+        <label class="checkrow"><input id="printerWorks" type="checkbox"> Yazıcı Çalışıyor</label>
+        <label class="checkrow"><input id="dateTimeOk" type="checkbox"> Saat ve Tarih Ayarı Düzgün</label>
+        <label class="checkrow"><input id="beltClean" type="checkbox"> Konveyör Band Temiz</label>
+        <label class="checkrow"><input id="testCard12" type="checkbox"> 1.2 Ferrous paslanmaz çelik test kartı kontrol</label>
+        <label class="checkrow"><input id="ninePoint" type="checkbox"> 9 nokta aparatı kontrol</label>
+        <label>Eğitim Alan Kişiler<textarea id="trainedPeople"></textarea></label>
+      </section>
+
+      <section id="handheldFields" class="form-section hidden">
+        <h4>El Tipi Metal Dedektör Elektronik Değerleri</h4>
+        <label>Power Supply<input id="powerSupply" placeholder="örn. 5 vdc"></label>
+        <label>Battery Back-up<input id="batteryBackup" placeholder="örn. 5 vdc"></label>
+        <label>Proces Board<input id="processBoard" placeholder="örn. 1.08"></label>
+        <label>Head Capacitor<input id="headCapacitor" placeholder="örn. 9 volt vdc"></label>
+        <label class="checkrow"><input id="handheldTestCard" type="checkbox"> 1.2 Ferrous paslanmaz çelik test kartı kontrol</label>
+      </section>
+
+      <section class="form-section">
+        <h4>Yapılan Çalışmalar</h4>
+        <label><textarea id="workDone" placeholder="Yapılan işlemleri yazın"></textarea></label>
+        <label>Gelecek Kalibrasyon / Servis<input id="nextServiceDate" type="date" required></label>
+        <label>Teknisyen / Onay<input id="technicianName" placeholder="Kalmer Kalibrasyon"></label>
+      </section>
+
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary">Vazgeç</button>
+        <button type="submit">Kaydet ve Tamamla</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="historyDialog">
+    <div class="history-wrap">
+      <div class="row">
+        <h3>Bakım / Kalibrasyon Geçmişi</h3>
+        <button onclick="historyDialog.close()" class="secondary">Kapat</button>
+      </div>
+      <div id="historyList" class="list"></div>
+    </div>
   </dialog>
 
   <script src="app.js"></script>

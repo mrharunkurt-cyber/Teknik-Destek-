@@ -1,15 +1,16 @@
 
 const STORE_KEY = "metal-bakim-takip-v1";
 let db = loadDB();
+if(!db.serviceRecords) db.serviceRecords=[];
 let deferredPrompt = null;
-let maintFilter = "all";
+let maintFilter = "upcoming";
 
 function loadDB(){
   try{
     const raw = localStorage.getItem(STORE_KEY);
     if(raw) return JSON.parse(raw);
   }catch(e){}
-  return {customers:[], devices:[], payments:[], collections:[]};
+  return {customers:[], devices:[], payments:[], collections:[], serviceRecords:[]};
 }
 function saveDB(){ localStorage.setItem(STORE_KEY, JSON.stringify(db)); renderAll(); }
 function id(){ return crypto.randomUUID ? crypto.randomUUID() : Date.now()+"-"+Math.random(); }
@@ -32,8 +33,11 @@ function maintStatus(device){
   const next = addMonths(device.lastMaintenance, device.intervalMonths||6);
   const d = daysUntil(next);
 
-  // Kullanıcı "Bakım Yapılmadı" seçtiyse tarih ilerlemez.
-  // Kayıt beklemede/gecikmiş olarak kalır.
+  // Tamamlanan bakım kaydı - yeni dönem henüz yaklaşmadıysa "Yapılanlar" filtresinde görünür.
+  if(device.maintenanceState === "completed" && device.completedDate){
+    return {key:"completed", label:"Yapıldı", days:d, next, completedDate:device.completedDate};
+  }
+
   if(device.maintenanceState === "not_done"){
     if(d < 0) return {key:"late", label:"Yapılmadı / Gecikmiş", days:d, next};
     return {key:"upcoming", label:"Bakım Yapılmadı", days:d, next};
@@ -42,7 +46,7 @@ function maintStatus(device){
   if(d < 0) return {key:"late", label:"Gecikmiş", days:d, next};
   if(d === 0) return {key:"upcoming", label:"Bugün", days:d, next};
   if(d <= Number(device.reminderDays ?? 5)) return {key:"upcoming", label:"Planlandı", days:d, next};
-  return {key:"ok", label:"Normal", days:d, next};
+  return {key:"normal", label:"Normal", days:d, next};
 }
 function getCustomer(cid){ return db.customers.find(x=>x.id===cid); }
 function getDevice(did){ return db.devices.find(x=>x.id===did); }
@@ -64,7 +68,7 @@ function renderDashboard(){
   document.getElementById("sumLateMaintenance").textContent = statuses.filter(x=>x.key==="late").length;
   document.getElementById("sumCustomers").textContent = db.customers.length;
 
-  const due = db.devices.map(d=>({d,s:maintStatus(d)})).filter(x=>x.s.key!=="ok").sort((a,b)=>a.s.days-b.s.days);
+  const due = db.devices.map(d=>({d,s:maintStatus(d)})).filter(x=>x.s.key==="upcoming" || x.s.key==="late").sort((a,b)=>a.s.days-b.s.days);
   document.getElementById("maintenanceSummary").innerHTML = due.length ? due.map(({d,s})=>{
     const c=getCustomer(d.customerId);
     return `<div class="item">
@@ -103,12 +107,13 @@ function renderCustomers(){
         const s=maintStatus(d);
         return `<div class="item" style="margin-top:10px;background:#fafafa">
           <div class="row"><strong>${esc(d.name)}</strong><span class="badge ${s.key}">${s.label}</span></div>
-          <div class="muted small">${esc(d.brandModel||"")} ${d.serialNumber? "• Seri No: "+esc(d.serialNumber):""}</div>
+          <div class="muted small">${d.brandModel? "Operatör: "+esc(d.brandModel)+" • ":""}${d.serialNumber? "Seri No: "+esc(d.serialNumber):""}</div>
           <div class="muted small">Sonraki bakım: ${fmtDate(s.next)}</div>
           ${d.photoData?`<img src="${d.photoData}" class="preview" style="margin-top:8px">`:""}
           <div class="actions">
             <button onclick="openDeviceModal('${c.id}','${d.id}')">Düzenle</button>
             <button class="ok-btn" onclick="completeMaintenance('${d.id}')">Bakım Tamamlandı</button>
+            <button onclick="openHistory('${d.id}')">Geçmiş</button>
             <button class="warn-btn" onclick="markMaintenanceNotDone('${d.id}')">Bakım Yapılmadı</button>
             <button class="danger-btn" onclick="deleteDevice('${d.id}')">Cihazı Sil</button>
           </div>
@@ -119,20 +124,40 @@ function renderCustomers(){
 }
 
 function renderMaintenance(){
-  let arr=db.devices.map(d=>({d,s:maintStatus(d)})).sort((a,b)=>a.s.days-b.s.days);
-  if(maintFilter!=="all") arr=arr.filter(x=>x.s.key===maintFilter);
+  let arr=db.devices.map(d=>({d,s:maintStatus(d)})).sort((a,b)=>{
+    if(a.s.key==="completed" && b.s.key==="completed"){
+      return String(b.s.completedDate||"").localeCompare(String(a.s.completedDate||""));
+    }
+    return a.s.days-b.s.days;
+  });
+
+  arr=arr.filter(x=>x.s.key===maintFilter);
+
   document.getElementById("maintenanceList").innerHTML = arr.length ? arr.map(({d,s})=>{
     const c=getCustomer(d.customerId);
+    const operatorText = d.brandModel ? `<div class="muted small">Operatör: ${esc(d.brandModel)}</div>` : "";
+    const completedText = s.key==="completed" && s.completedDate
+      ? `<div class="muted small">Yapılan bakım: <strong>${fmtDate(s.completedDate)}</strong></div>`
+      : `<div>Planlanan bakım: <strong>${fmtDate(s.next)}</strong></div>`;
+
     return `<div class="item">
-      <div class="row"><h3>${esc(c?.companyName||"Müşteri")} – ${esc(d.name)}</h3><span class="badge ${s.key}">${s.label}</span></div>
-      <div class="muted small">Seri No: ${esc(d.serialNumber||"-")}</div>
-      <div>Sonraki bakım: <strong>${fmtDate(s.next)}</strong></div>
-      <div class="actions">
-        <button class="ok-btn" onclick="completeMaintenance('${d.id}')">Bakım Tamamlandı</button>
-        <button class="warn-btn" onclick="markMaintenanceNotDone('${d.id}')">Bakım Yapılmadı</button>
+      <div class="row">
+        <div>
+          <h3>${esc(c?.companyName||"Müşteri")}</h3>
+          <div><strong>${esc(d.name)}</strong></div>
+        </div>
+        <span class="badge ${s.key}">${s.label}</span>
       </div>
+      ${operatorText}
+      <div class="muted small">Seri No: ${esc(d.serialNumber||"-")}</div>
+      ${completedText}
+      ${s.key!=="completed" ? `<div class="actions">
+        <button class="ok-btn" onclick="completeMaintenance('${d.id}')">Bakım Tamamlandı</button>
+        <button onclick="openHistory('${d.id}')">Geçmiş</button>
+        <button class="warn-btn" onclick="markMaintenanceNotDone('${d.id}')">Bakım Yapılmadı</button>
+      </div>` : ""}
     </div>`;
-  }).join("") : `<div class="item muted">Bu filtrede kayıt yok.</div>`;
+  }).join("") : `<div class="item muted">Bu bölümde kayıt yok.</div>`;
 }
 
 function renderPayments(){
@@ -160,7 +185,7 @@ function openCustomerModal(cid=""){
 function openDeviceModal(cid,did=""){
   const d=document.getElementById("deviceDialog"), x=did?getDevice(did):null;
   deviceDialogTitle.textContent=x?"Cihaz Düzenle":"Yeni Cihaz";
-  deviceCustomerId.value=cid; deviceId.value=x?.id||""; deviceName.value=x?.name||""; brandModel.value=x?.brandModel||"";
+  deviceCustomerId.value=cid; deviceId.value=x?.id||""; deviceName.value=x?.name||""; deviceType.value=x?.deviceType||"needle"; brandModel.value=x?.brandModel||"";
   serialNumber.value=x?.serialNumber||""; lastMaintenance.value=x?.lastMaintenance||todayISO();
   intervalMonths.value=x?.intervalMonths||6; reminderDays.value=x?.reminderDays??5; deviceNotes.value=x?.notes||"";
   photoPreview.src=x?.photoData||""; photoPreview.classList.toggle("hidden",!x?.photoData);
@@ -191,7 +216,7 @@ deviceForm.addEventListener("submit",async e=>{
   let photoData=existing?.photoData||"";
   const file=devicePhoto.files[0];
   if(file) photoData=await fileToDataURL(file);
-  const obj={id:did||id(),customerId:deviceCustomerId.value,name:deviceName.value.trim(),brandModel:brandModel.value.trim(),serialNumber:serialNumber.value.trim(),lastMaintenance:lastMaintenance.value,intervalMonths:Number(intervalMonths.value||6),reminderDays:Number(reminderDays.value||5),notes:deviceNotes.value.trim(),photoData,maintenanceState:existing?.maintenanceState||"pending"};
+  const obj={id:did||id(),customerId:deviceCustomerId.value,name:deviceName.value.trim(),deviceType:deviceType.value,brandModel:brandModel.value.trim(),serialNumber:serialNumber.value.trim(),lastMaintenance:lastMaintenance.value,intervalMonths:Number(intervalMonths.value||6),reminderDays:Number(reminderDays.value||5),notes:deviceNotes.value.trim(),photoData,maintenanceState:existing?.maintenanceState||"pending",completedDate:existing?.completedDate||""};
   if(did) db.devices=db.devices.map(x=>x.id===did?obj:x); else db.devices.push(obj);
   saveDB(); deviceDialog.close();
 });
@@ -221,20 +246,205 @@ function fileToDataURL(file){return new Promise((res,rej)=>{const r=new FileRead
 
 function completeMaintenance(did){
   const d=getDevice(did); if(!d)return;
-  if(confirm(`${d.name} için bakım bugün TAMAMLANDI olarak işaretlensin mi?`)){
-    d.lastMaintenance=todayISO();
-    d.maintenanceState="completed";
-    saveDB();
-  }
+  const c=getCustomer(d.customerId);
+
+  serviceDeviceId.value=d.id;
+  serviceDialogTitle.textContent = d.deviceType==="handheld"
+    ? "El Tipi Metal Dedektör Kalibrasyon Formu"
+    : d.deviceType==="needle"
+      ? "İğne Dedektörü Kalibrasyon Formu"
+      : "Servis / Bakım Formu";
+
+  certificateNo.value = String((db.serviceRecords?.length||0)+1).padStart(4,"0");
+  serviceDate.value=todayISO();
+  serviceCompany.value=c?.companyName||"";
+  serviceAddress.value=c?.address||"";
+  servicePhone.value=c?.phone||"";
+  serviceMachineName.value=d.name||"";
+  serviceSerial.value=d.serialNumber||"";
+  serviceOperators.value=d.brandModel||"";
+
+  needleFields.classList.toggle("hidden", d.deviceType==="handheld");
+  handheldFields.classList.toggle("hidden", d.deviceType!=="handheld");
+
+  sensitivity.value="";
+  counterSensors.checked=false; autoStart.checked=false; printerWorks.checked=false;
+  dateTimeOk.checked=false; beltClean.checked=false; testCard12.checked=false; ninePoint.checked=false;
+  trainedPeople.value="";
+
+  powerSupply.value=""; batteryBackup.value=""; processBoard.value="";
+  headCapacitor.value=""; handheldTestCard.checked=false;
+
+  workDone.value = d.deviceType==="handheld"
+    ? "1.2 test karta göre makine ayarları kontrol edildi.
+Uyarı sistemleri kontrol edildi."
+    : "1.2 test karta göre makine ayarları kontrol edildi.
+Operatör eğitimleri yenilendi.
+9 nokta test işlemi yapıldı.";
+
+  nextServiceDate.value=addMonths(todayISO(), d.intervalMonths||6);
+  technicianName.value="Kalmer Kalibrasyon";
+  serviceDialog.showModal();
 }
 
 function markMaintenanceNotDone(did){
   const d=getDevice(did); if(!d)return;
   if(confirm(`${d.name} için bakım YAPILMADI olarak işaretlensin mi? Tarih ilerletilmeyecek.`)){
     d.maintenanceState="not_done";
+    d.completedDate="";
     saveDB();
   }
 }
+
+serviceForm.addEventListener("submit",e=>{
+  e.preventDefault();
+  const d=getDevice(serviceDeviceId.value); if(!d)return;
+  const c=getCustomer(d.customerId);
+
+  const record={
+    id:id(),
+    deviceId:d.id,
+    customerId:d.customerId,
+    certificateNo:certificateNo.value.trim(),
+    date:serviceDate.value,
+    companyName:c?.companyName||"",
+    address:c?.address||"",
+    phone:c?.phone||"",
+    machineName:d.name||"",
+    serialNumber:d.serialNumber||"",
+    deviceType:d.deviceType||"needle",
+    operators:serviceOperators.value.trim(),
+    sensitivity:sensitivity.value.trim(),
+    counterSensors:counterSensors.checked,
+    autoStart:autoStart.checked,
+    printerWorks:printerWorks.checked,
+    dateTimeOk:dateTimeOk.checked,
+    beltClean:beltClean.checked,
+    testCard12:testCard12.checked,
+    ninePoint:ninePoint.checked,
+    trainedPeople:trainedPeople.value.trim(),
+    powerSupply:powerSupply.value.trim(),
+    batteryBackup:batteryBackup.value.trim(),
+    processBoard:processBoard.value.trim(),
+    headCapacitor:headCapacitor.value.trim(),
+    handheldTestCard:handheldTestCard.checked,
+    workDone:workDone.value.trim(),
+    nextServiceDate:nextServiceDate.value,
+    technicianName:technicianName.value.trim()
+  };
+
+  db.serviceRecords.push(record);
+  d.lastMaintenance=serviceDate.value;
+  d.completedDate=serviceDate.value;
+  d.maintenanceState="completed";
+  d.brandModel=serviceOperators.value.trim();
+
+  saveDB();
+  serviceDialog.close();
+});
+
+function openHistory(did){
+  const d=getDevice(did); if(!d)return;
+  const records=(db.serviceRecords||[])
+    .filter(r=>r.deviceId===did)
+    .sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+
+  historyList.innerHTML = records.length ? records.map(r=>`
+    <div class="history-card">
+      <div class="row">
+        <div>
+          <h4>${fmtDate(r.date)} • Sertifika No: ${esc(r.certificateNo||"-")}</h4>
+          <div class="muted small">${esc(r.machineName)} • Seri No: ${esc(r.serialNumber||"-")}</div>
+        </div>
+        <span class="badge completed">Yapıldı</span>
+      </div>
+      <div class="muted small">Operatör: ${esc(r.operators||"-")}</div>
+      <div class="muted small">Gelecek servis: ${fmtDate(r.nextServiceDate)}</div>
+      <div class="actions">
+        <button onclick="printServiceRecord('${r.id}')">PDF / Yazdır</button>
+      </div>
+    </div>
+  `).join("") : `<div class="item muted">Bu makine için geçmiş kayıt yok.</div>`;
+
+  historyDialog.showModal();
+}
+
+function yesNo(v){ return v ? "✓" : "—"; }
+
+function printServiceRecord(recordId){
+  const r=(db.serviceRecords||[]).find(x=>x.id===recordId); if(!r)return;
+  const isHandheld=r.deviceType==="handheld";
+
+  const detailRows = isHandheld ? `
+    <tr><td>Power Supply</td><td>${esc(r.powerSupply||"-")}</td></tr>
+    <tr><td>Battery Back-up</td><td>${esc(r.batteryBackup||"-")}</td></tr>
+    <tr><td>Proces Board</td><td>${esc(r.processBoard||"-")}</td></tr>
+    <tr><td>Head Capacitor</td><td>${esc(r.headCapacitor||"-")}</td></tr>
+    <tr><td>1.2 Ferrous Test Kartı</td><td>${yesNo(r.handheldTestCard)}</td></tr>
+  ` : `
+    <tr><td>Hassasiyet Ayarı</td><td>${esc(r.sensitivity||"-")}</td></tr>
+    <tr><td>Sayaç Sensörleri</td><td>${yesNo(r.counterSensors)}</td></tr>
+    <tr><td>Otomatik Başlama</td><td>${yesNo(r.autoStart)}</td></tr>
+    <tr><td>Yazıcı Çalışıyor</td><td>${yesNo(r.printerWorks)}</td></tr>
+    <tr><td>Saat / Tarih Ayarı</td><td>${yesNo(r.dateTimeOk)}</td></tr>
+    <tr><td>Konveyör Band Temiz</td><td>${yesNo(r.beltClean)}</td></tr>
+    <tr><td>1.2 Ferrous Test Kartı</td><td>${yesNo(r.testCard12)}</td></tr>
+    <tr><td>9 Nokta Aparatı</td><td>${yesNo(r.ninePoint)}</td></tr>
+    <tr><td>Eğitim Alan Kişiler</td><td>${esc(r.trainedPeople||"-")}</td></tr>
+  `;
+
+  const title = isHandheld
+    ? "EL TİPİ METAL DEDEKTÖR KALİBRASYON SERTİFİKASI"
+    : "KALİBRASYON SERTİFİKASI";
+
+  const w=window.open("","_blank");
+  w.document.write(`
+    <html><head><title>${title}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:28px;color:#111}
+      h1,h2{text-align:center;margin:6px 0}
+      .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+      .brand{font-size:28px;font-weight:800;border:3px solid #d7a900;padding:8px 20px;background:#111827;color:#fff;border-radius:8px}
+      table{width:100%;border-collapse:collapse;margin-top:14px}
+      td,th{border:1px solid #bbb;padding:7px;font-size:12px;vertical-align:top}
+      .section{margin-top:16px;font-weight:700}
+      .footer{margin-top:24px;text-align:center;font-size:11px}
+      .sign{margin-top:26px;display:flex;justify-content:space-between}
+      @media print{button{display:none}}
+    </style></head><body>
+      <div class="top"><div class="brand">KALMER</div><div>No: <strong>${esc(r.certificateNo||"-")}</strong></div></div>
+      <h2>${title}</h2>
+
+      <table>
+        <tr><th colspan="2">Firma Bilgileri</th></tr>
+        <tr><td>Tarih</td><td>${fmtDate(r.date)}</td></tr>
+        <tr><td>Firma Adı</td><td>${esc(r.companyName)}</td></tr>
+        <tr><td>Firma Adresi</td><td>${esc(r.address||"-")}</td></tr>
+        <tr><td>Firma Tel No</td><td>${esc(r.phone||"-")}</td></tr>
+        <tr><th colspan="2">Makine Detayları</th></tr>
+        <tr><td>Makine Adı</td><td>${esc(r.machineName)}</td></tr>
+        <tr><td>Seri No</td><td>${esc(r.serialNumber||"-")}</td></tr>
+        <tr><td>Operatör İsimleri</td><td>${esc(r.operators||"-")}</td></tr>
+        ${detailRows}
+        <tr><th colspan="2">Yapılan Çalışmalar</th></tr>
+        <tr><td colspan="2">${esc(r.workDone||"-").replace(/\n/g,"<br>")}</td></tr>
+        <tr><td>Gelecek Kalibrasyon / Servis</td><td><strong>${fmtDate(r.nextServiceDate)}</strong></td></tr>
+      </table>
+
+      <div class="sign">
+        <div>Teknisyen / Onay<br><br><strong>${esc(r.technicianName||"Kalmer Kalibrasyon")}</strong></div>
+        <div>İmza / Kaşe<br><br>______________________</div>
+      </div>
+
+      <div class="footer">
+        KALMER DEDEKTÖR TEKSTİL MAKİNALARI SATIŞ SANAYİ TİC. LTD. ŞTİ.
+      </div>
+      <script>window.onload=()=>window.print();<\/script>
+    </body></html>
+  `);
+  w.document.close();
+}
+
 function deleteDevice(did){
   if(confirm("Bu cihaz silinsin mi?")){ db.devices=db.devices.filter(x=>x.id!==did); saveDB(); }
 }
