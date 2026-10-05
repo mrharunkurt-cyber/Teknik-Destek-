@@ -138,3 +138,11 @@ Bu başlangıç sürümünde uygulama açıldığında yaklaşan ve gecikmiş ba
 - Desteklenen evrak türleri: JPG / PNG / diğer resimler / PDF.
 - Bakım geçmişinde "Evrakı Aç" butonu ile kayıtlı belge görüntülenebilir.
 - Yerel tarayıcı saklama sınırı nedeniyle tek evrak için 3 MB sınırı uygulanır.
+
+
+## v6.5 güncellemesi
+
+- Evrak uygulama içinde belge görüntüleyicide açılır.
+- Evrak ekranında WhatsApp Gönder, Yazdır ve Kapat butonları bulunur.
+- WhatsApp Gönder, iPhone paylaşım ekranını açar; WhatsApp seçilerek dosya paylaşılır.
+- Resim ve PDF evrakları görüntülenebilir.

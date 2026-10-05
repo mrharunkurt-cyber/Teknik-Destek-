@@ -437,24 +437,104 @@ function openHistory(did){
 }
 
 
+let currentAttachmentRecordId = null;
+
+function dataURLToFile(dataUrl, filename, mimeType){
+  const parts=dataUrl.split(",");
+  const binary=atob(parts[1]);
+  const bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+  return new File([bytes], filename || "evrak", {type:mimeType || "application/octet-stream"});
+}
+
 function openAttachment(recordId){
   const r=(db.serviceRecords||[]).find(x=>x.id===recordId);
   if(!r || !r.attachmentData){
     alert("Bu bakım kaydında evrak yok.");
     return;
   }
-  const w=window.open();
+
+  currentAttachmentRecordId=recordId;
+  $("attachmentTitle").textContent = r.attachmentName || "Bakım Evrakı";
+
+  const body=$("attachmentViewerBody");
+  body.innerHTML="";
+
+  if((r.attachmentType||"").startsWith("image/")){
+    const img=document.createElement("img");
+    img.src=r.attachmentData;
+    img.alt=r.attachmentName||"Bakım evrakı";
+    body.appendChild(img);
+  }else if((r.attachmentType||"")==="application/pdf"){
+    const iframe=document.createElement("iframe");
+    iframe.src=r.attachmentData;
+    iframe.title=r.attachmentName||"Bakım PDF";
+    body.appendChild(iframe);
+  }else{
+    body.innerHTML='<div class="item">Bu dosya türü önizlenemiyor.</div>';
+  }
+
+  $("attachmentDialog").showModal();
+}
+
+$("attachmentCloseBtn").addEventListener("click", ()=>{
+  $("attachmentDialog").close();
+  $("attachmentViewerBody").innerHTML="";
+  currentAttachmentRecordId=null;
+});
+
+$("attachmentShareBtn").addEventListener("click", async ()=>{
+  const r=(db.serviceRecords||[]).find(x=>x.id===currentAttachmentRecordId);
+  if(!r || !r.attachmentData) return;
+
+  try{
+    const file=dataURLToFile(
+      r.attachmentData,
+      r.attachmentName || (r.attachmentType==="application/pdf" ? "bakim-evraki.pdf" : "bakim-evraki.jpg"),
+      r.attachmentType
+    );
+
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+      await navigator.share({
+        title:"Bakım Evrakı",
+        text:`${r.companyName || "Müşteri"} - ${r.machineName || "Makine"} bakım evrakı`,
+        files:[file]
+      });
+    }else{
+      alert("Bu cihaz dosya paylaşımını desteklemiyor. iPhone'da Safari üzerinden açıp tekrar deneyin.");
+    }
+  }catch(err){
+    if(err && err.name==="AbortError") return;
+    alert("Evrak paylaşılırken bir sorun oluştu.");
+  }
+});
+
+$("attachmentPrintBtn").addEventListener("click", ()=>{
+  const r=(db.serviceRecords||[]).find(x=>x.id===currentAttachmentRecordId);
+  if(!r || !r.attachmentData) return;
+
+  const w=window.open("","_blank");
   if(!w){
-    alert("Evrak açılamadı. Tarayıcı açılır pencereyi engelliyor olabilir.");
+    alert("Yazdırma penceresi açılamadı. Tarayıcı açılır pencereyi engelliyor olabilir.");
     return;
   }
+
   if((r.attachmentType||"").startsWith("image/")){
-    w.document.write(`<html><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${r.attachmentData}" style="max-width:100%;height:auto"></body></html>`);
+    w.document.write(`
+      <html>
+        <head><title>${esc(r.attachmentName||"Bakım Evrakı")}</title></head>
+        <body style="margin:0;text-align:center;background:white">
+          <img src="${r.attachmentData}" style="max-width:100%;height:auto">
+          <script>window.onload=()=>window.print();<\/script>
+        </body>
+      </html>
+    `);
     w.document.close();
   }else{
     w.location.href=r.attachmentData;
+    setTimeout(()=>{ try{ w.print(); }catch(e){} }, 1200);
   }
-}
+});
 
 function yesNo(v){ return v ? "✓" : "—"; }
 

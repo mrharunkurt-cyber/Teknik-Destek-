@@ -39,3 +39,18 @@ label{font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:6px}
 .print-sheet table{width:100%;border-collapse:collapse;margin-top:12px}
 .print-sheet td,.print-sheet th{border:1px solid #bbb;padding:7px;font-size:12px;vertical-align:top}
 .print-sheet .section{margin-top:16px;font-weight:700}
+
+.attachment-dialog{width:min(98vw,950px);max-width:98vw;height:min(94vh,900px);padding:0}
+.attachment-viewer{height:100%;display:flex;flex-direction:column;background:#f3f4f6}
+.attachment-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+.attachment-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.attachment-actions button{padding:9px 11px;font-size:13px}
+.attachment-body{flex:1;overflow:auto;padding:12px;display:flex;align-items:flex-start;justify-content:center}
+.attachment-body img{max-width:100%;height:auto;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.12)}
+.attachment-body iframe{width:100%;height:100%;min-height:72vh;border:0;background:#fff;border-radius:8px}
+@media(max-width:600px){
+  .attachment-toolbar{align-items:flex-start;flex-direction:column}
+  .attachment-actions{width:100%}
+  .attachment-actions button{flex:1}
+  .attachment-dialog{width:100vw;max-width:100vw;height:100vh;max-height:100vh;border-radius:0}
+}
